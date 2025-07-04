@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/products/1001"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": 1001,
+      "name": "Wireless Mouse",
+      "price": 799.00,
+      "availability": "IN_STOCK"
+    }
+  }
+}
