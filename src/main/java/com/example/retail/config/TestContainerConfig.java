@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -30,6 +32,9 @@ import java.util.concurrent.Executors;
 public class TestContainerConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(TestContainerConfig.class);
+
+    // Database latency configuration
+    private static final long DATABASE_LATENCY_MS = 500; 
 
     private static final Network network = Network.newNetwork();
 
@@ -68,7 +73,8 @@ public class TestContainerConfig {
         postgresqlProxy = toxiproxyClient.createProxy("postgresql", "0.0.0.0:8666", "postgres:5432");
 
         // Don't add latency initially - let the application start up first
-        // You can add latency later using: TestContainerConfig.getPostgresqlProxy().toxics().latency(...)
+        // Latency will be added after application context is ready
+        logger.info("PostgreSQL proxy created - latency will be added after startup");
 
         // Configure DataSource to use the proxy
         String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s",
@@ -98,29 +104,93 @@ public class TestContainerConfig {
         return new LatencyController();
     }
 
+    @Bean
+    public ApplicationStartupLatencyInjector applicationStartupLatencyInjector(LatencyController latencyController) {
+        return new ApplicationStartupLatencyInjector(latencyController);
+    }
+
+    // Component that adds latency after application startup
+    public static class ApplicationStartupLatencyInjector implements ApplicationListener<ApplicationReadyEvent> {
+
+        private final LatencyController latencyController;
+
+        public ApplicationStartupLatencyInjector(LatencyController latencyController) {
+            this.latencyController = latencyController;
+        }
+
+        @Override
+        public void onApplicationEvent(ApplicationReadyEvent event) {
+            try {
+                // Add latency after application is fully ready
+                if (!latencyController.isLatencyActive()) {
+                    latencyController.addConfiguredLatency();
+                    logger.info("🐌 Application startup complete - {}ms database latency now active!", DATABASE_LATENCY_MS);
+                } else {
+                    logger.info("🐌 Database latency already active - skipping");
+                }
+            } catch (Exception e) {
+                logger.error("Failed to add database latency after startup", e);
+            }
+        }
+    }
+
     // Helper class to control latency after application startup
     public static class LatencyController {
 
+        private boolean latencyActive = false;
+
         public void addLatency(long milliseconds) throws IOException {
             if (postgresqlProxy != null) {
+                // Remove any existing latency first to avoid duplicates
+                removeLatency();
+
                 postgresqlProxy.toxics().latency("postgresql-latency", ToxicDirection.DOWNSTREAM, milliseconds);
+                latencyActive = true;
                 logger.info("Added {}ms latency to PostgreSQL connection", milliseconds);
             }
         }
 
         public void removeLatency() throws IOException {
-            if (postgresqlProxy != null) {
+            if (postgresqlProxy != null && latencyActive) {
                 try {
                     postgresqlProxy.toxics().get("postgresql-latency").remove();
+                    latencyActive = false;
                     logger.info("Removed latency from PostgreSQL connection");
                 } catch (Exception e) {
                     logger.warn("Could not remove latency (may not exist): {}", e.getMessage());
+                    latencyActive = false;
                 }
             }
         }
 
         public void add3SecondLatency() throws IOException {
             addLatency(3000);
+        }
+
+        public void addConfiguredLatency() throws IOException {
+            addLatency(DATABASE_LATENCY_MS);
+        }
+
+        public void add1SecondLatency() throws IOException {
+            addLatency(1000);
+        }
+
+        public boolean isLatencyActive() {
+            return latencyActive;
+        }
+
+        public void listActiveToxics() throws IOException {
+            if (postgresqlProxy != null) {
+                try {
+                    var toxics = postgresqlProxy.toxics().getAll();
+                    logger.info("Active toxics count: {}", toxics.size());
+                    for (var toxic : toxics) {
+                        logger.info("  - Toxic name: {}", toxic.getName());
+                    }
+                } catch (Exception e) {
+                    logger.warn("Could not list toxics: {}", e.getMessage());
+                }
+            }
         }
     }
 
