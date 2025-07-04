@@ -1,8 +1,8 @@
 package com.example.retail.client;
 
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -17,22 +17,20 @@ public class ProductClient {
 
     private static final Logger logger = LoggerFactory.getLogger(ProductClient.class);
 
-    @Value("${app.http.client.type:resttemplate}")
-    private String httpClientType;
-
     private final RestTemplate restTemplate;
     private final RestClient restClient;
-    private String baseUrl;
+    private final String baseUrl;
+    private final String httpClientType;
 
-    public ProductClient(RestTemplate restTemplate, RestClient restClient) {
+    public ProductClient(RestTemplate restTemplate,
+                         RestClient restClient,
+                         @Qualifier("productServiceBaseUrl") String baseUrl,
+                         @Value("${app.http.client.type:resttemplate}") String httpClientType) {
         this.restTemplate = restTemplate;
         this.restClient = restClient;
-    }
+        this.baseUrl = baseUrl;
+        this.httpClientType = httpClientType;
 
-    @PostConstruct
-    public void init() {
-        // Fetch base URL from system property set by TestContainerConfig
-        this.baseUrl = System.getProperty("app.external.product-service.url", "http://localhost:8081");
         logger.info("External product service base URL resolved as: {}", baseUrl);
         logger.info("Using HTTP client type: {}", httpClientType);
     }

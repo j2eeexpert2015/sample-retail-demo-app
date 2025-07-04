@@ -70,6 +70,11 @@
             <artifactId>postgresql</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>toxiproxy</artifactId>
+        </dependency>
+
         <!-- WireMock with Testcontainers -->
         <dependency>
             <groupId>org.wiremock.integrations.testcontainers</groupId>
