@@ -5,13 +5,14 @@
   },
   "response": {
     "status": 200,
+    "fixedDelayMilliseconds": 3000,
     "headers": {
       "Content-Type": "application/json"
     },
     "jsonBody": {
       "id": 1001,
       "name": "Wireless Mouse",
-      "price": 799.00,
+      "price": 799,
       "availability": "IN_STOCK"
     }
   }
