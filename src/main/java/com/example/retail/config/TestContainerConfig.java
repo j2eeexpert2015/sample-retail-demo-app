@@ -86,6 +86,7 @@ public class TestContainerConfig {
         dataSource.setJdbcUrl(jdbcUrl);
         dataSource.setUsername(postgres.getUsername());
         dataSource.setPassword(postgres.getPassword());
+        dataSource.setMaximumPoolSize(100);
         dataSource.setDriverClassName("org.postgresql.Driver");
 
         // Standard configuration for development
